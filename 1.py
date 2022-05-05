@@ -9,7 +9,7 @@ from subprocess import Popen, PIPE
 from time import sleep
 from datetime import datetime
 
-# Red and Green LED
+# Green LED
 LED_PIN = [5,6]
 
 # InfluxDB Config
@@ -25,10 +25,10 @@ location = ''
 client = InfluxDBClient(host, port, user, password, dbname)
 
 # Wait time between sensor readout
-interval = 2.5
+interval = 5.0
 
-# Temperature and Humidity Sensor DHT11
-sensor = Adafruit_DHT.DHT11
+# Temperature and Humidity Sensor DHT22
+sensor = Adafruit_DHT.DHT22
 pin = 26
 
 # Modify this if you have a different sized character LCD
@@ -44,16 +44,15 @@ lcd_d5 = digitalio.DigitalInOut(board.D24)
 lcd_d6 = digitalio.DigitalInOut(board.D23)
 lcd_d7 = digitalio.DigitalInOut(board.D18)
 
-
 # Initialise the lcd class
 lcd = characterlcd.Character_LCD_Mono(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6,
                                       lcd_d7, lcd_columns, lcd_rows)
 
 # run unix shell command, return as ASCII
-def run_cmd(cmd):
-    p = Popen(cmd, shell=True, stdout=PIPE)
-    output = p.communicate()[0]
-    return output.decode('ascii')
+#def run_cmd(cmd):
+#    p = Popen(cmd, shell=True, stdout=PIPE)
+#    output = p.communicate()[0]
+#    return output.decode('ascii')
 
 # Init GPIO for LEDs
 def setgpio():
@@ -62,47 +61,51 @@ def setgpio():
 
 # Write Sensor Data to InfluxDB
 def influxdb_data(iso, h, t):
-    data = [
-        {
-            "measurement": measurement,
-                "tags": {
-                    "location": location,
-            },
-            "time": iso,
-            "fields": {
-                "temperature": t,
-                "humidity": h
-               # "heat_index": hic
-            }
-        }
-    ]
+    data = [{
+          "measurement": measurement,
+          "tags": {
+            "location": location,
+          },
+          "time": iso,
+          "fields": {
+            "temperature": t,
+            "humidity": h
+            #"heat_index": hic
+          }
+    }]
+
     client.write_points(data)
 
-
 def main():
+    a=0
     # wipe LCD screen before we start and init gpio
     lcd.clear()
     setgpio()
-    sleep(2)
+    sleep(interval)
 
     while True:
         # read sensor, write to influxdb
-        humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
-        influxdb_data(time.ctime(), temperature, humidity)
+        try:
+           humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+           print('humidity' + str(humidity))
+           print('temperature' + str(temperature))
+           if humidity is not None and temperature is not None:
+              influxdb_data(time.ctime(), temperature, humidity)
+              # date and time
+              lcd_line_1 = datetime.now().strftime('%b %d  %H:%M:%S\n')
+              lcd_line_2 = u'\N{DEGREE SIGN}'+'C:' + "{:.1f}".format((temperature)) + '  %H:' + "{:.1f}".format((humidity))
+              # combine both lines into one update to the display
+              lcd.message = lcd_line_1 + lcd_line_2
+        except RuntimeError as err:
+           print("Reading from DHT failure: ", e.args)
 
         # switch led lights
-        GPIO.output(LED_PIN, (GPIO.HIGH, GPIO.LOW))
-        sleep(interval)
-        GPIO.output(LED_PIN, (GPIO.LOW, GPIO.HIGH))
-
-        # date and time
-        lcd_line_1 = datetime.now().strftime('%b %d  %H:%M:%S\n')
-
-        # current ip address
-        lcd_line_2 = str(temperature) + ' - ' + str(humidity)
-
-        # combine both lines into one update to the display
-        lcd.message = lcd_line_1 + lcd_line_2
+        if a == 0:
+           GPIO.output(LED_PIN, (GPIO.HIGH, GPIO.LOW))
+           a=1
+        else:
+           GPIO.output(LED_PIN, (GPIO.LOW, GPIO.HIGH))
+           a=0
 
         sleep(interval)
     GPIO.cleanup()

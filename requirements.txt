@@ -1,0 +1,4 @@
+influxdb
+Adafruit_DHT
+adafruit-circuitpython-charlcd
+adafruit-blinka

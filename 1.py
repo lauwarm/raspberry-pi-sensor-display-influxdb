@@ -9,7 +9,7 @@ from subprocess import Popen, PIPE
 from time import sleep
 from datetime import datetime
 
-# Green LED
+# Red and Green LED
 LED_PIN = [5,6]
 
 # InfluxDB Config
@@ -27,7 +27,7 @@ client = InfluxDBClient(host, port, user, password, dbname)
 # Wait time between sensor readout
 interval = 5.0
 
-# Temperature and Humidity Sensor DHT22
+# Temperature and Humidity Sensor DHT11
 sensor = Adafruit_DHT.DHT22
 pin = 26
 
@@ -48,11 +48,13 @@ lcd_d7 = digitalio.DigitalInOut(board.D18)
 lcd = characterlcd.Character_LCD_Mono(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6,
                                       lcd_d7, lcd_columns, lcd_rows)
 
-# run unix shell command, return as ASCII
-#def run_cmd(cmd):
-#    p = Popen(cmd, shell=True, stdout=PIPE)
-#    output = p.communicate()[0]
-#    return output.decode('ascii')
+# Buffer Size
+buff_size = 7
+
+h_array = [0 for i in range(buff_size)]
+t_array = [0 for i in range(buff_size)]
+h_array_sort = [0 for i in range(buff_size)]
+t_array_sort = [0 for i in range(buff_size)]
 
 # Init GPIO for LEDs
 def setgpio():
@@ -76,36 +78,87 @@ def influxdb_data(iso, h, t):
 
     client.write_points(data)
 
+def bubble_sort(sort_array, n):
+    i = 0
+    j = 0
+    temp = 0
+    for i in range(n-1):
+        for j in range(n-1):
+            if (sort_array[j] > sort_array[j+1]):
+                temp = sort_array[j]
+                sort_array[j] = sort_array[j+1]
+                sort_array[j+1] = temp
+            
+
+def init():
+    lcd.clear() # wipe LCD screen before we start and init gpio
+    setgpio()
+    lcd_line_1 = "Initializing\n"
+    lcd_line_2 = ""
+    
+    for i in range(buff_size):
+        sleep(interval)
+        print("INIT")
+
+        lcd_line_2 += "."
+        # combine both lines into one update to the display
+        lcd.message = lcd_line_1 + lcd_line_2
+        try:
+            humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+            if humidity is not None and temperature is not None:
+                h_array[i] = humidity
+                t_array[i] = temperature
+        except RuntimeError as err:
+            print("Reading from DHT failure: ", err.args)
+
 def main():
     a=0
-    # wipe LCD screen before we start and init gpio
-    lcd.clear()
-    setgpio()
+    b=0
+    median_index=0
+    init()
+
     sleep(interval)
 
     while True:
+        
         # read sensor, write to influxdb
         try:
            humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
            print('humidity' + str(humidity))
            print('temperature' + str(temperature))
            if humidity is not None and temperature is not None:
-              influxdb_data(time.ctime(), temperature, humidity)
-              # date and time
-              lcd_line_1 = datetime.now().strftime('%b %d  %H:%M:%S\n')
-              lcd_line_2 = u'\N{DEGREE SIGN}'+'C:' + "{:.1f}".format((temperature)) + '  %H:' + "{:.1f}".format((humidity))
-              # combine both lines into one update to the display
-              lcd.message = lcd_line_1 + lcd_line_2
+             for i in range(buff_size - 1):
+               h_array[i] = h_array[i+1]
+               t_array[i] = t_array[i+1]
+                
+             h_array[buff_size-1] = humidity
+             t_array[buff_size-1] = temperature
+
+             for i in range(buff_size):
+               h_array_sort[i] = h_array[i]
+               t_array_sort[i] = t_array[i]
+             bubble_sort(h_array_sort, buff_size)
+             bubble_sort(t_array_sort, buff_size)
+
+             median_index = int(buff_size/2)
+             humidity = h_array_sort[median_index]
+             temperature = t_array_sort[median_index]
+             influxdb_data(time.ctime(), temperature, humidity)
+             # date and time
+             lcd_line_1 = datetime.now().strftime('%b %d  %H:%M:%S\n')
+             lcd_line_2 = u'\N{DEGREE SIGN}'+'C:' + "{:.1f}".format((temperature)) + '  %H:' + "{:.1f}".format((humidity))
+             # combine both lines into one update to the display
+             lcd.message = lcd_line_1 + lcd_line_2
         except RuntimeError as err:
-           print("Reading from DHT failure: ", e.args)
+           print("Reading from DHT failure: ", err.args)
 
         # switch led lights
-        if a == 0:
+        if b == 0:
            GPIO.output(LED_PIN, (GPIO.HIGH, GPIO.LOW))
-           a=1
+           b=1
         else:
            GPIO.output(LED_PIN, (GPIO.LOW, GPIO.HIGH))
-           a=0
+           b=0
 
         sleep(interval)
     GPIO.cleanup()

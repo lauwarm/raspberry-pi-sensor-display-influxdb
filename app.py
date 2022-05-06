@@ -78,7 +78,7 @@ def influxdb_data(iso, h, t, hic):
   }]
   try:
     client.write_points(data)
-  except RuntimeError as err:
+  except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
     print("Failed to Write to InfluxDB: ", err.args)
 
 def convert_c_to_f(c):

@@ -1,4 +1,3 @@
-#import time
 import board
 import digitalio
 import Adafruit_DHT
@@ -10,8 +9,8 @@ from time import sleep
 from time import ctime
 from datetime import datetime
 
-# Red and Green LED
-LED_PIN = [5,6]
+# Green LED
+LED_PIN = 5
 
 # InfluxDB Config
 host = ''
@@ -28,7 +27,7 @@ client = InfluxDBClient(host, port, user, password, dbname)
 # Wait time between sensor readout
 interval = 5.0
 
-# Temperature and Humidity Sensor DHT11
+# Temperature and Humidity Sensor DHT22
 sensor = Adafruit_DHT.DHT22
 pin = 26
 
@@ -73,7 +72,7 @@ def influxdb_data(iso, h, t, hic):
         "time": iso,
         "fields": {
           "temperature": t,
-          "humidity": h
+          "humidity": h,
           "heat_index": hic
         }
   }]
@@ -142,7 +141,9 @@ def init():
 
 def main():
   a, b, median_index = 0, 0, 0
-  humidity: float, temperature: float, hic: float
+  humidity: float = {0.0}
+  temperature: float = {0.0}
+  hic: float = {0.0}
   
   init()
 
@@ -157,7 +158,7 @@ def main():
         for i in range(buff_size - 1):
           h_array[i] = h_array[i+1]
           t_array[i] = t_array[i+1]
-                
+           
         h_array[buff_size-1] = humidity
         t_array[buff_size-1] = temperature
 
@@ -183,10 +184,10 @@ def main():
 
     # switch led lights
     if b == 0:
-      GPIO.output(LED_PIN, (GPIO.HIGH, GPIO.LOW))
+      GPIO.output(LED_PIN, GPIO.HIGH)
       b=1
     else:
-      GPIO.output(LED_PIN, (GPIO.LOW, GPIO.HIGH))
+      GPIO.output(LED_PIN, GPIO.LOW)
       b=0
 
     sleep(interval)

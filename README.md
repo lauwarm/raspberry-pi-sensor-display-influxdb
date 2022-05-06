@@ -16,10 +16,7 @@
 
 ```bash
 sudo apt install python3-pip
-sudo pip3 install influxdb
-sudo pip3 install Adafruit_DHT
-sudo pip3 install adafruit-circuitpython-charlcd
-sudo pip3 install adafruit-blinka
+pip3 install -r requirements.txt
 ```
 
 ## Create a Service

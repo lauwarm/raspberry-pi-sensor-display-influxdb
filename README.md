@@ -20,3 +20,29 @@ sudo pip3 install adafruit-circuitpython-charlcd
 sudo pip3 install adafruit-blinka
 sudo apt install python3-pip
 ```
+
+## Create a Service
+```bash
+sudo vim /lib/systemd/system/service-name.service
+```
+
+```bash
+[Unit]
+Description=Descriptive Description
+After=multi-user.target
+
+[Service]
+Type=idle
+ExecStart=/usr/bin/python3 /path/to/python/script.py
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo chmod 644 /lib/systemd/system/service-name.service
+sudo systemctl daemon-reload
+sudo systemctl enable service-name.service
+sudo systemctl start service-name.service
+```

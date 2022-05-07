@@ -4,7 +4,8 @@ import Adafruit_DHT
 import adafruit_character_lcd.character_lcd as characterlcd
 import RPi.GPIO as GPIO
 from influxdb import InfluxDBClient
-from subprocess import Popen, PIPE
+from requests.exceptions import ConnectionError, RequestException
+from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 from time import sleep
 from time import ctime
 from datetime import datetime
@@ -78,7 +79,7 @@ def influxdb_data(iso, h, t, hic):
   }]
   try:
     client.write_points(data)
-  except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
+  except (ConnectionError, InfluxDBClientError, InfluxDBServerError) as err:
     print("Failed to Write to InfluxDB: ", err.args)
 
 def convert_c_to_f(c):
@@ -177,7 +178,7 @@ def main():
         
         # date and time
         lcd_line_1 = datetime.now().strftime('%Y-%m-%d %H:%M\n')
-        lcd_line_2 = u'\N{DEGREE SIGN}'+'C:' + "{:.1f}".format((temperature)) + '  %H:' + "{:.1f}".format((humidity))
+        lcd_line_2 = chr(223)+'C:' + "{:.1f}".format((temperature)) + '  %H:' + "{:.1f}".format((humidity))
         lcd.message = lcd_line_1 + lcd_line_2
     except RuntimeError as err:
       print("Reading from DHT failure: ", err.args)
